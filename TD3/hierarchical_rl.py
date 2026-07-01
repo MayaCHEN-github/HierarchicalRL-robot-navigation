@@ -62,8 +62,9 @@ class HierarchicalRL:
         # 移除了与PrioritizedReplayBuffer相关的参数，因为该类不可用
         use_per = False
         """初始化HRL Agent"""
-        # CUDA使用设置
-        self.device = torch.device("cpu")  # 强制使用CPU，不使用GPU
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = torch.device(device)
         print(f"使用设备: {self.device}")
 
         # 环境参数
@@ -174,7 +175,7 @@ class HierarchicalRL:
         # 低层智能体的观察空间和动作空间
         # 低层智能体的观察空间和动作空间
         low_level_observation_low = np.concatenate([high_level_observation_low, [-np.pi, 0.0]]).astype(np.float32)
-        low_level_observation_high = np.concatenate([high_level_observation_high, [np.pi, 10.0]]).astype(np.float32)
+        low_level_observation_high = np.concatenate([high_level_observation_high, [np.pi, 5.0]]).astype(np.float32)
         low_level_observation_space = Box(low=low_level_observation_low, high=low_level_observation_high, dtype=np.float32)
         low_level_action_space = self.env.action_space  # 直接使用环境的动作空间
 
@@ -213,8 +214,7 @@ class HierarchicalRL:
         from gymnasium import spaces
         from stable_baselines3.common.env_util import make_vec_env
         
-        # 高层动作空间：20个方向 × 10个距离级别 = 200个离散动作
-        num_directions = 20
+        num_directions = self.environment_dim
         num_distances = 10
         high_level_action_space = spaces.Discrete(num_directions * num_distances)
         
@@ -263,7 +263,7 @@ class HierarchicalRL:
             device=self.device,  # 计算设备
             exploration_initial_eps=self.epsilon_start,  # 初始探索率
             exploration_final_eps=self.epsilon_end,  # 最终探索率
-            exploration_fraction=self.epsilon_decay / self.max_timesteps  # 探索率衰减比例
+            exploration_fraction=min(1.0, 0.3),  # ponytail: SB3 要训练步数比例，不是 epsilon_decay 步数
         )
 
         # 添加模型保存回调，每eval_freq步保存一次
@@ -454,11 +454,15 @@ class HierarchicalRL:
         if hasattr(self.low_level_agent, 'policy') and hasattr(self.low_level_agent.policy, 'target_policy_noise'): # 如果有这个参数的话
             self.low_level_agent.policy.target_policy_noise = self.current_noise # 更新为current_noise
 
+    @staticmethod
+    def _decode_high_level_action(high_level_action: int, environment_dim: int) -> Tuple[int, float, float]:
+        direction = int(high_level_action) % environment_dim
+        distance = (int(high_level_action) // environment_dim) * 0.5 + 0.5
+        direction_rad = (direction / environment_dim) * 2 * np.pi - np.pi
+        return direction, distance, direction_rad
+
     def _calculate_rewards(self, state: np.ndarray, next_state: np.ndarray, action: int, distance: float,
                           done: bool, target: bool, episode_timesteps: int, reward: float, info: dict) -> Tuple[float, float]:
-        # 确保prev_direction已定义
-        if not hasattr(self, 'prev_direction'):
-            self.prev_direction = 0.0
         """计算高层和低层智能体的奖励
 
         奖励函数是强化学习中的关键组件，它定义了智能体行为的好坏。该方法计算
@@ -478,14 +482,19 @@ class HierarchicalRL:
         返回:
             Tuple[float, float]: 高层智能体奖励和低层智能体奖励
         """
-        # 提取位置信息
-        current_position = state[:2]
-        next_position = next_state[:2]
-        direction = action % self.environment_dim
+        if not hasattr(self, 'prev_direction'):
+            self.prev_direction = 0.0
 
-        # 计算实际移动
-        dx = next_position[0] - current_position[0]
-        dy = next_position[1] - current_position[1]
+        direction = action % self.environment_dim
+        if hasattr(self.env, 'gazebo_env') and hasattr(self, '_prev_odom'):
+            prev_x, prev_y = self._prev_odom
+            next_x = self.env.gazebo_env.odom_x
+            next_y = self.env.gazebo_env.odom_y
+        else:
+            prev_x = prev_y = next_x = next_y = 0.0
+
+        dx = next_x - prev_x
+        dy = next_y - prev_y
         actual_distance = np.sqrt(dx**2 + dy**2)
         actual_direction = np.arctan2(dy, dx) * 180 / np.pi % 360
 
@@ -584,11 +593,15 @@ class HierarchicalRL:
                     # ===== 高层：离散 action -> (direction, distance) =====
                     # 这里只用 policy 的 predict，不让 SB3 自己 rollouts
                     high_level_action = self.high_level_agent.predict(state, deterministic=False)[0]
-                    direction = high_level_action % 20
-                    distance  = (high_level_action // 20) * 0.5 + 0.5  # 0.5 ~ 5.0
+                    direction, distance, direction_rad = self._decode_high_level_action(
+                        high_level_action, self.environment_dim
+                    )
+
+                    if hasattr(self.env, 'gazebo_env'):
+                        self._prev_odom = (self.env.gazebo_env.odom_x, self.env.gazebo_env.odom_y)
 
                     # ===== 低层：连续动作（把子目标拼进观测）=====
-                    sub_goal_state = np.append(state, [direction, distance])
+                    sub_goal_state = np.append(state, [direction_rad, distance])
                     low_level_action = self.low_level_agent.predict(sub_goal_state, deterministic=False)[0]
 
                     # 与 Gazebo 真正交互的一步
@@ -600,7 +613,6 @@ class HierarchicalRL:
                     done = terminated or truncated
                     target = info.get('target_reached', False) if info else False
 
-                    # 计算自定义奖励
                     high_level_reward, low_level_reward = self._calculate_rewards(
                         state=state, 
                         next_state=next_state, 
@@ -624,12 +636,12 @@ class HierarchicalRL:
                     obs_h = state.reshape(1, -1)
                     next_obs_h = next_state.reshape(1, -1)
                     act_h = np.array([[high_level_action]], dtype=np.int64)
-                    rew_h = np.array([0.0], dtype=np.float32)
+                    rew_h = np.array([high_level_reward], dtype=np.float32)
                     done_h = np.array([bool(done)], dtype=np.bool_)
                     H_BUF.add(obs_h, next_obs_h, act_h, rew_h, done_h, infos=[{}])
 
                     obs_l = sub_goal_state.reshape(1, -1)
-                    next_obs_l = np.append(next_state, [direction, distance]).reshape(1, -1)
+                    next_obs_l = np.append(next_state, [direction_rad, distance]).reshape(1, -1)
                     act_l = np.array(low_level_action, dtype=np.float32).reshape(1, -1)
                     rew_l = np.array([low_level_reward], dtype=np.float32)
                     done_l = np.array([bool(done)], dtype=np.bool_)
@@ -697,16 +709,7 @@ class HierarchicalRL:
                             print(f"评估或保存过程中出现错误: {e}")
                             # 即使评估失败，也继续训练
 
-                # 回合结束时更新高层经验的奖励值
                 if done:
-                    # 这里简化处理，实际应该找到该回合的所有经验并更新
-                    # 为了简单，我们只更新最后一条经验的奖励
-                    if H_BUF.size() > 0:
-                        # 确保last_idx是有效的
-                        last_idx = H_BUF.size() - 1
-                        # 更新奖励为回合总奖励
-                        H_BUF.rewards[last_idx] = episode_reward
-
                     # ------- 回合结束后，用"剩余经验"再多做一些梯度步 -------
                     if H_BUF.size() > 0 or L_BUF.size() > 0:
                         # 仅当样本 >= batch_size 才训练，避免 SB3 采样报错
@@ -893,11 +896,15 @@ class HierarchicalRL:
             while not done and episode_steps < self.max_ep:
                 # 高层决策 (使用确定性策略)
                 high_level_action = self.high_level_agent.predict(state, deterministic=True)[0]
-                direction = high_level_action % 20
-                distance = (high_level_action // 20) * 0.5 + 0.5
-                
+                direction, distance, direction_rad = self._decode_high_level_action(
+                    high_level_action, self.environment_dim
+                )
+
+                if hasattr(self.env, 'gazebo_env'):
+                    self._prev_odom = (self.env.gazebo_env.odom_x, self.env.gazebo_env.odom_y)
+
                 # 低层执行 (使用确定性策略)
-                sub_goal_state = np.append(state, [direction, distance])
+                sub_goal_state = np.append(state, [direction_rad, distance])
                 low_level_action = self.low_level_agent.predict(sub_goal_state, deterministic=True)[0]
                 
                 # 执行动作
@@ -1070,20 +1077,8 @@ class HierarchicalRL:
         try:
             print("正在清理环境...")
             
-            # 1. 关闭当前环境
             if hasattr(self, 'env') and hasattr(self.env, 'close'):
                 self.env.close()
-            
-            # 2. 清理ROS进程
-            os.system("pkill -9 -f 'gazebo_ros/gzserver|gzserver|roslaunch|rosmaster|rosout|gzclient' 2>/dev/null || true")
-            
-            # 3. 清理Gazebo共享内存
-            os.system("rm -f /dev/shm/gazebo-* /tmp/gazebo* 2>/dev/null || true")
-            
-            # 4. 等待进程完全结束
-            import time
-            time.sleep(2)
-            
             print("环境清理完成")
             
         except Exception as e:
@@ -1161,16 +1156,13 @@ class HierarchicalRL:
     
     def _cleanup_gazebo_ros(self):
         """
-        自动清理：关闭 gym/env，杀掉残留的 ros/gazebo 进程，并清理共享内存文件。
-        只在本脚本内部调用，不改外部工程。
+        自动清理：关闭本次训练持有的 env。
         """
-        # 1) 先尝试优雅关闭 wrapper/env（如果实现了）
         try:
             if hasattr(self, "env") and hasattr(self.env, "close"):
                 self.env.close()
         except Exception:
             pass
-        # 也尝试关掉 agent 里可能持有的 env
         try:
             if hasattr(self, "high_level_agent") and hasattr(self.high_level_agent, "env") and self.high_level_agent.env is not None:
                 self.high_level_agent.env.close()
@@ -1181,12 +1173,6 @@ class HierarchicalRL:
                 self.low_level_agent.env.close()
         except Exception:
             pass
-
-        # 2) 兜底：干掉常见的 ros/gazebo 进程（只针对本机用户，-f 以命令行匹配）
-        os.system("pkill -9 -f 'gazebo_ros/gzserver|gzserver -e ode|roslaunch|rosmaster|rosout|gzclient' 2>/dev/null || true")
-
-        # 3) 清理 Gazebo 共享内存/锁文件，避免下次启动 255
-        os.system("rm -f /dev/shm/gazebo-* /tmp/gazebo* 2>/dev/null || true")
 
 
 

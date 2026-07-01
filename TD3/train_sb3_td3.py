@@ -1,7 +1,6 @@
 import os
 import torch
 import time
-import os
 import numpy as np
 from stable_baselines3 import TD3
 from stable_baselines3.common.callbacks import CheckpointCallback, BaseCallback
@@ -281,11 +280,8 @@ class DetailedEvaluationCallback(BaseCallback):
 
 
 def main():
-    # 强制使用CPU
-    print("=== 设备设置 ===")
-    device = "cpu"
-    print(f"已设置使用CPU进行计算")
-    print("=" * 20)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"使用设备: {device}")
 
     # 环境
     print("正在创建训练环境...")
