@@ -22,8 +22,12 @@ class EvaluationWrapper(VelodyneGymWrapper):
         
         return state, reward, terminated, truncated, info
     
-    def reset(self):
-        state, info = super().reset() # 调用父类的reset方法（返回observation, info）
+    def reset(self, seed=None, options=None):
+        if seed is not None:
+            import random
+            random.seed(seed)
+            np.random.seed(seed)
+        state, info = super().reset(seed=seed, options=options) # 调用父类的reset方法（返回observation, info）
         self.reset_evaluation_metrics() # 重置metrics
         self._initialize_evaluation_metrics() # 获取起始位置和目标位置
         return state, info

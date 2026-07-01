@@ -253,15 +253,19 @@ def main():
     # Create the training environment
     environment_dim = 20
     robot_dim = 4
-    env = GazeboEnv("multi_robot_scenario.launch", environment_dim)
-    time.sleep(5)
-    # === 强制只用本地模型，别联网（确保 model://cardboard_box 命中本地） ===
+
+    # ponytail: Gazebo 环境变量须在启动仿真前设置
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    catkin_src = os.path.abspath(os.path.join(current_dir, '..', 'catkin_ws', 'src'))
     os.environ['GAZEBO_MODEL_DATABASE_URI'] = ''
     os.environ['GAZEBO_MODEL_PATH'] = os.pathsep.join([
-        '/home/dev/noetic-gpu/DRL-robot-navigation/catkin_ws/src',
+        catkin_src,
         os.path.expanduser('~/.gazebo/models'),
         os.environ.get('GAZEBO_MODEL_PATH', '')
     ])
+
+    env = GazeboEnv("multi_robot_scenario.launch", environment_dim)
+    time.sleep(5)
 
     # === 等 Gazebo 服务就绪，并确保 4 个箱子存在；若不存在则本地 spawn ===
     if not rospy.core.is_initialized():
@@ -274,19 +278,9 @@ def main():
     get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
     spawn_model = rospy.ServiceProxy('/gazebo/spawn_sdf_model', SpawnModel)
 
-    # 你的本地模型文件（你说的这个路径）
-    current_dir = os.path.dirname(os.path.abspath(__file__))        # 构建相对路径（假设标准项目结构）    
-    relative_path = os.path.join(        
-        '..',  # 退到TD3上级目录        
-        'catkin_ws',        
-        'src',        
-        'multi_robot_scenario',        
-        'models',        
-        'cardboard_box',        
-        'model.sdf'    
-        )        # 连接为完整路径    
-    model_path = os.path.abspath(os.path.join(current_dir, relative_path))
-    MODEL_SDF_PATH = '/home/dev/noetic-gpu/DRL-robot-navigation/catkin_ws/src/multi_robot_scenario/models/cardboard_box/model.sdf'
+    model_path = os.path.join(
+        catkin_src, 'multi_robot_scenario', 'models', 'cardboard_box', 'model.sdf'
+    )
     with open(model_path, 'r') as f:
         model_xml = f.read()
 

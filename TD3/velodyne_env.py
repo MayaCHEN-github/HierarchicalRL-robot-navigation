@@ -24,6 +24,19 @@ COLLISION_DIST = 0.35
 TIME_DELTA = 0.1
 
 
+def _wrap_angle(theta):
+    return (theta + np.pi) % (2 * np.pi) - np.pi
+
+
+def _relative_angle_to_goal(goal_x, goal_y, odom_x, odom_y, heading):
+    # ponytail: atan2 替代 acos 链，目标重合时返回 0
+    skew_x = goal_x - odom_x
+    skew_y = goal_y - odom_y
+    if math.hypot(skew_x, skew_y) < 1e-6:
+        return 0.0
+    return _wrap_angle(math.atan2(skew_y, skew_x) - heading)
+
+
 # Check if the random goal position is located on an obstacle and do not accept it if it is
 def check_pos(x, y):
     goal_ok = True
@@ -171,12 +184,10 @@ class GazeboEnv:
         self.velodyne_data = np.ones(self.environment_dim) * 10 # 初始化激光雷达数据全为10（表示10m距离，远距离表示无障碍物）
         for i in range(len(data)):
             if data[i][2] > -0.2: # 只考虑地面以上的点
-                # 计算点与机器人之间的夹角
-                dot = data[i][0] * 1 + data[i][1] * 0
-                mag1 = math.sqrt(math.pow(data[i][0], 2) + math.pow(data[i][1], 2))
-                mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-                beta = math.acos(dot / (mag1 * mag2)) * np.sign(data[i][1])
-                # 计算点与机器人之间的距离
+                mag1 = math.hypot(data[i][0], data[i][1])
+                if mag1 < 1e-6:
+                    continue
+                beta = math.atan2(data[i][1], data[i][0])
                 dist = math.sqrt(data[i][0] ** 2 + data[i][1] ** 2 + data[i][2] ** 2)
                 # 找到对应的角度区间，更新最小距离
                 for j in range(len(self.gaps)):
@@ -225,7 +236,6 @@ class GazeboEnv:
         # 暂停物理仿真
         rospy.wait_for_service("/gazebo/pause_physics")
         try:
-            pass
             self.pause()
         except (rospy.ServiceException) as e:
             print("/gazebo/pause_physics service call failed")
@@ -260,25 +270,9 @@ class GazeboEnv:
             [self.odom_x - self.goal_x, self.odom_y - self.goal_y]
         )
 
-        # Calculate the relative angle between the robots heading and heading toward the goal 计算机器人与目标点的相对角度，告诉机器人应该朝哪个方向转向才能面向目标
-        skew_x = self.goal_x - self.odom_x
-        skew_y = self.goal_y - self.odom_y
-        dot = skew_x * 1 + skew_y * 0
-        mag1 = math.sqrt(math.pow(skew_x, 2) + math.pow(skew_y, 2))
-        mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-        beta = math.acos(dot / (mag1 * mag2))
-        if skew_y < 0:
-            if skew_x < 0:
-                beta = -beta
-            else:
-                beta = 0 - beta
-        theta = beta - angle
-        if theta > np.pi:
-            theta = np.pi - theta
-            theta = -np.pi - theta
-        if theta < -np.pi:
-            theta = -np.pi - theta
-            theta = np.pi - theta
+        theta = _relative_angle_to_goal(
+            self.goal_x, self.goal_y, self.odom_x, self.odom_y, angle
+        )
 
         # Detect if the goal has been reached and give a large positive reward 检测是否到达目标点（如果距离小于GOAL_REACHED_DIST，则认为到达目标点）
         if distance < GOAL_REACHED_DIST:
@@ -365,27 +359,9 @@ class GazeboEnv:
             [self.odom_x - self.goal_x, self.odom_y - self.goal_y]
         )
 
-        skew_x = self.goal_x - self.odom_x
-        skew_y = self.goal_y - self.odom_y
-
-        dot = skew_x * 1 + skew_y * 0
-        mag1 = math.sqrt(math.pow(skew_x, 2) + math.pow(skew_y, 2))
-        mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
-        beta = math.acos(dot / (mag1 * mag2))
-
-        if skew_y < 0:
-            if skew_x < 0:
-                beta = -beta
-            else:
-                beta = 0 - beta
-        theta = beta - angle
-
-        if theta > np.pi:
-            theta = np.pi - theta
-            theta = -np.pi - theta
-        if theta < -np.pi:
-            theta = -np.pi - theta
-            theta = np.pi - theta
+        theta = _relative_angle_to_goal(
+            self.goal_x, self.goal_y, self.odom_x, self.odom_y, angle
+        )
 
         robot_state = [distance, theta, 0.0, 0.0]
         state = np.append(laser_state, robot_state)
