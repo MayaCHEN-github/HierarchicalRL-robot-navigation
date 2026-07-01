@@ -45,12 +45,13 @@ Clone the repository:
 $ cd ~
 ### Clone this repo
 $ git clone https://github.com/MayaCHEN-github/HierarchicalRL-robot-navigation.git
+$ cd HierarchicalRL-robot-navigation
 ```
 The network can be run with a standard 2D laser, but this implementation uses a simulated [3D Velodyne sensor](https://github.com/lmark1/velodyne_simulator)
 
 Compile the workspace:
 ```shell
-$ cd DRL-robot-navigation/catkin_ws/
+$ cd HierarchicalRL-robot-navigation/catkin_ws/
 ### Compile
 $ catkin_make_isolated
 ```
@@ -60,15 +61,15 @@ Open a terminal and set up sources:
 $ export ROS_HOSTNAME=localhost
 $ export ROS_MASTER_URI=http://localhost:11311
 $ export ROS_PORT_SIM=11311
-$ export GAZEBO_RESOURCE_PATH=~/DRL-robot-navigation/catkin_ws/src/multi_robot_scenario/launch
+$ export GAZEBO_RESOURCE_PATH=~/HierarchicalRL-robot-navigation/catkin_ws/src/multi_robot_scenario/launch
 $ source ~/.bashrc
-$ cd ~/DRL-robot-navigation/catkin_ws
+$ cd ~/HierarchicalRL-robot-navigation/catkin_ws
 $ source devel_isolated/setup.bash
 ```
 
 Run the training:
 ```shell
-$ cd ~/DRL-robot-navigation/TD3
+$ cd ~/HierarchicalRL-robot-navigation/TD3
 
 ### Launches hierarchical RL training
 $ python train_hierarchical.py
@@ -76,7 +77,7 @@ $ python train_hierarchical.py
 ### or Launches Stable-Baselines3 TD3
 $ python train_sb3_td3.py
 
-### or Launches custom TD3 implementation in DRL-robot-navigation
+### or Launches custom TD3 implementation in HierarchicalRL-robot-navigation
 $ python train_velodyne_td3.py
 ```
 

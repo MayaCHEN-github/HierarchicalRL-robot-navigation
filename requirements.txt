@@ -1,0 +1,8 @@
+numpy
+torch
+tensorboard
+tqdm
+optuna
+stable-baselines3
+gymnasium
+squaternion

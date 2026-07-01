@@ -1077,20 +1077,8 @@ class HierarchicalRL:
         try:
             print("正在清理环境...")
             
-            # 1. 关闭当前环境
             if hasattr(self, 'env') and hasattr(self.env, 'close'):
                 self.env.close()
-            
-            # 2. 清理ROS进程
-            os.system("pkill -9 -f 'gazebo_ros/gzserver|gzserver|roslaunch|rosmaster|rosout|gzclient' 2>/dev/null || true")
-            
-            # 3. 清理Gazebo共享内存
-            os.system("rm -f /dev/shm/gazebo-* /tmp/gazebo* 2>/dev/null || true")
-            
-            # 4. 等待进程完全结束
-            import time
-            time.sleep(2)
-            
             print("环境清理完成")
             
         except Exception as e:
@@ -1168,16 +1156,13 @@ class HierarchicalRL:
     
     def _cleanup_gazebo_ros(self):
         """
-        自动清理：关闭 gym/env，杀掉残留的 ros/gazebo 进程，并清理共享内存文件。
-        只在本脚本内部调用，不改外部工程。
+        自动清理：关闭本次训练持有的 env。
         """
-        # 1) 先尝试优雅关闭 wrapper/env（如果实现了）
         try:
             if hasattr(self, "env") and hasattr(self.env, "close"):
                 self.env.close()
         except Exception:
             pass
-        # 也尝试关掉 agent 里可能持有的 env
         try:
             if hasattr(self, "high_level_agent") and hasattr(self.high_level_agent, "env") and self.high_level_agent.env is not None:
                 self.high_level_agent.env.close()
@@ -1188,12 +1173,6 @@ class HierarchicalRL:
                 self.low_level_agent.env.close()
         except Exception:
             pass
-
-        # 2) 兜底：干掉常见的 ros/gazebo 进程（只针对本机用户，-f 以命令行匹配）
-        os.system("pkill -9 -f 'gazebo_ros/gzserver|gzserver -e ode|roslaunch|rosmaster|rosout|gzclient' 2>/dev/null || true")
-
-        # 3) 清理 Gazebo 共享内存/锁文件，避免下次启动 255
-        os.system("rm -f /dev/shm/gazebo-* /tmp/gazebo* 2>/dev/null || true")
 
 
 

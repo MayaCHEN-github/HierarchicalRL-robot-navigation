@@ -81,6 +81,10 @@ class GazeboEnv:
     """Superclass for all Gazebo environments."""
 
     def __init__(self, launchfile, environment_dim):
+        self.port = "11311"
+        self.roscore_process = None
+        self.roslaunch_process = None
+
         # 环境参数初始化
         self.environment_dim = environment_dim 
         self.odom_x = 0 # 机器人当前X坐标
@@ -123,13 +127,13 @@ class GazeboEnv:
             )
         self.gaps[-1][-1] += 0.03  # 最后一个区间稍微扩展
 
-        port = "11311"  # ROS默认端口
-        subprocess.Popen(["roscore", "-p", port])  # 启动ROS核心
+        self.roscore_process = subprocess.Popen(["roscore", "-p", self.port])  # 启动ROS核心
 
         print("Roscore launched!")
 
         # Launch the simulation with the given launchfile name
-        rospy.init_node("gym", anonymous=True)  # 初始化ROS节点
+        if not rospy.core.is_initialized():
+            rospy.init_node("gym", anonymous=True)  # 初始化ROS节点
         # 构建launch文件路径
         if launchfile.startswith("/"):
             fullpath = launchfile
@@ -141,7 +145,7 @@ class GazeboEnv:
         # 启动Gazebo仿真，添加--gui=false参数禁用图形界面
         # 启动Gazebo仿真，添加--gui=false参数禁用图形界面
         # 注意：--gui参数需要放在launch文件路径之前
-        subprocess.Popen(["roslaunch", "-p", port, fullpath])
+        self.roslaunch_process = subprocess.Popen(["roslaunch", "-p", self.port, fullpath])
 
         # Set up the ROS publishers and subscribers
         # 创建ROS发布者（Publisher）
@@ -501,3 +505,14 @@ class GazeboEnv:
             # action[0] / 2：鼓励前进（线速度越大，奖励越高）。
             # abs(action[1]) / 2：鼓励转向（角速度越大，奖励越高）。
             # r3(min_laser) / 2：鼓励远离障碍物（障碍物距离越小，奖励越高）。
+
+    def close(self):
+        for process in (self.roslaunch_process, self.roscore_process):
+            if process is None or process.poll() is not None:
+                continue
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
