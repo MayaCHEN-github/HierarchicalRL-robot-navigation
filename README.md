@@ -41,19 +41,14 @@ Upstream installation tutorial: [Deep Reinforcement Learning in Mobile Robot Nav
 - **Evaluation metrics** — success rate, path efficiency, trajectory smoothness, time cost, collision rate
 - **Chinese project guide** — detailed walkthroughs and tables in [`repo-docs/`](repo-docs/README.md)
 
-### Current status
+### Training tracks
 
-> [!IMPORTANT]
-> Start with single-agent TD3. Hierarchical DQN+TD3 is runnable but still unstable, and there is no trustworthy quantitative win over the TD3 baseline yet.
-
-| Track | Script | Status |
-| --- | --- | --- |
-| SB3 TD3 | `TD3/train_sb3_td3.py` | Recommended baseline |
-| Custom TD3 | `TD3/train_velodyne_td3.py` | Mature, closest to the original paper |
-| Hierarchical DQN+TD3 | `TD3/train_hierarchical.py` | Experimental / unstable |
-| SB3 / custom DQN | `TD3/train_sb3_DQN.py`, `TD3/train_dqn.py` | Discrete single-agent control |
-
-Paper mentions of PyBullet and PathBench are **not** in this source tree. Simulation is Gazebo + ROS only.
+| Track | Script |
+| --- | --- |
+| Hierarchical DQN + TD3 | `TD3/train_hierarchical.py` |
+| SB3 TD3 | `TD3/train_sb3_td3.py` |
+| Custom TD3 | `TD3/train_velodyne_td3.py` |
+| SB3 / custom DQN | `TD3/train_sb3_DQN.py`, `TD3/train_dqn.py` |
 
 ### Getting started
 
@@ -93,16 +88,16 @@ source ~/HierarchicalRL-robot-navigation/catkin_ws/devel_isolated/setup.bash
 ```shell
 cd ~/HierarchicalRL-robot-navigation/TD3
 
-# Recommended first run: SB3 TD3 baseline
-python train_sb3_td3.py
-
-# Original custom TD3
-python train_velodyne_td3.py
-
-# Hierarchical experiment (expect instability)
+# Hierarchical DQN + TD3
 python train_hierarchical.py
 
-# Optional Optuna search (standalone module entry)
+# SB3 TD3
+python train_sb3_td3.py
+
+# Custom TD3 (original DRL-robot-navigation style)
+python train_velodyne_td3.py
+
+# Optional Optuna search
 python hierarchical_rl.py --optimize
 ```
 
@@ -210,19 +205,14 @@ Paper: [IEEE Xplore](https://ieeexplore.ieee.org/document/9645287).
 - **评估指标**：成功率、路径效率、轨迹平滑度、耗时、碰撞率
 - **中文文档**：走读、模块说明与查表见 [`repo-docs/`](repo-docs/README.md)
 
-### 当前成熟度
+### 训练路线
 
-> [!IMPORTANT]
-> 第一次运行请先走单层 TD3。分层 DQN+TD3 可以启动，但训练仍不稳定，目前没有可靠的定量结果证明它优于 TD3 基线。
-
-| 路线 | 脚本 | 状态 |
-| --- | --- | --- |
-| SB3 TD3 | `TD3/train_sb3_td3.py` | 推荐基线 |
-| 自定义 TD3 | `TD3/train_velodyne_td3.py` | 较成熟，最接近原论文 |
-| 分层 DQN+TD3 | `TD3/train_hierarchical.py` | 实验性 / 不稳定 |
-| SB3 / 自定义 DQN | `TD3/train_sb3_DQN.py`、`TD3/train_dqn.py` | 单层离散控制 |
-
-论文中的 PyBullet、PathBench **未**出现在当前源码中，仿真只有 Gazebo + ROS。
+| 路线 | 脚本 |
+| --- | --- |
+| 分层 DQN + TD3 | `TD3/train_hierarchical.py` |
+| SB3 TD3 | `TD3/train_sb3_td3.py` |
+| 自定义 TD3 | `TD3/train_velodyne_td3.py` |
+| SB3 / 自定义 DQN | `TD3/train_sb3_DQN.py`、`TD3/train_dqn.py` |
 
 ### 快速开始
 
@@ -262,16 +252,16 @@ source ~/HierarchicalRL-robot-navigation/catkin_ws/devel_isolated/setup.bash
 ```shell
 cd ~/HierarchicalRL-robot-navigation/TD3
 
-# 推荐首选：SB3 TD3 基线
-python train_sb3_td3.py
-
-# 原版自定义 TD3
-python train_velodyne_td3.py
-
-# 分层实验（可能不收敛）
+# 分层 DQN + TD3
 python train_hierarchical.py
 
-# 可选：Optuna 超参搜索（模块独立入口）
+# SB3 TD3
+python train_sb3_td3.py
+
+# 自定义 TD3（原 DRL-robot-navigation 风格）
+python train_velodyne_td3.py
+
+# 可选：Optuna 超参搜索
 python hierarchical_rl.py --optimize
 ```
 
