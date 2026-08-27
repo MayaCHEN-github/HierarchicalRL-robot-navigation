@@ -23,7 +23,7 @@ Mobile robot navigation with deep reinforcement learning in ROS Gazebo.
 
 This repository trains a mobile robot to reach a random goal in Gazebo while avoiding obstacles. Laser returns (from a simulated [Velodyne](https://github.com/lmark1/velodyne_simulator) 3D lidar) form the obstacle observation; the goal is given in polar coordinates relative to the robot.
 
-It extends [reiniscimurs/DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation) (ICRA 2022 / IEEE RA-L) with:
+This is a later personal fork of the course-group project [zacz08/DRL-robot-navigation](https://github.com/zacz08/DRL-robot-navigation). That group tree was built on [reiniscimurs/DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation) (ICRA 2022 / IEEE RA-L). This fork continues the work with:
 
 - a hierarchical **DQN + TD3** stack
 - Stable-Baselines3 (SB3) training entries
@@ -113,9 +113,14 @@ tensorboard --logdir ~/HierarchicalRL-robot-navigation/TD3/logs
 > If Gazebo or ROS linger after a crash, stop them with:
 > `killall -9 rosout roslaunch rosmaster gzserver nodelet robot_state_publisher gzclient python python3`
 
+Gazebo environment:
+
 <p align="center">
   <img src="env1.png" alt="Gazebo environment with Pioneer3DX and obstacles" width="80%" />
 </p>
+
+RViz:
+
 <p align="center">
   <img src="velodyne.png" alt="RViz view of the Velodyne point cloud and goal marker" width="80%" />
 </p>
@@ -163,7 +168,7 @@ High-level reward mixes direction match, distance match, lidar-based obstacle av
 
 ### Citation
 
-Upstream DRL-robot-navigation paper:
+Original DRL-robot-navigation paper (please cite if you use this work):
 
 ```bibtex
 @ARTICLE{9645287,
@@ -187,7 +192,7 @@ Paper: [IEEE Xplore](https://ieeexplore.ieee.org/document/9645287).
 
 本仓库在 ROS Gazebo 中训练移动机器人：前往随机目标并避开障碍。障碍来自仿真 [Velodyne](https://github.com/lmark1/velodyne_simulator) 三维激光；目标以相对极坐标给出。
 
-项目基于 [reiniscimurs/DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation)（ICRA 2022 / IEEE RA-L），并扩展了：
+本仓库是课程小组合作项目 [zacz08/DRL-robot-navigation](https://github.com/zacz08/DRL-robot-navigation) 的后续个人 fork 与改进。小组仓库基于 [reiniscimurs/DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation)（ICRA 2022 / IEEE RA-L）。本 fork 在此基础上继续加入：
 
 - **DQN + TD3** 分层架构
 - Stable-Baselines3（SB3）训练入口
@@ -277,6 +282,18 @@ tensorboard --logdir ~/HierarchicalRL-robot-navigation/TD3/logs
 > 训练异常退出后若 Gazebo/ROS 残留，可执行：
 > `killall -9 rosout roslaunch rosmaster gzserver nodelet robot_state_publisher gzclient python python3`
 
+Gazebo 环境：
+
+<p align="center">
+  <img src="env1.png" alt="Gazebo 环境：Pioneer3DX 与障碍物" width="80%" />
+</p>
+
+RViz：
+
+<p align="center">
+  <img src="velodyne.png" alt="RViz 中的 Velodyne 点云与目标标记" width="80%" />
+</p>
+
 ### 架构
 
 ```
@@ -320,7 +337,7 @@ HierarchicalRL-robot-navigation/
 
 ### 引用
 
-上游 DRL-robot-navigation 论文：
+原始 DRL-robot-navigation 论文（使用本仓库时请引用）：
 
 ```bibtex
 @ARTICLE{9645287,
