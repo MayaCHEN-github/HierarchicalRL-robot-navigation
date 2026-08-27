@@ -48,7 +48,7 @@ HierarchicalRL-robot-navigation/
 ├── catkin_ws/          # ROS 工作空间：机器人模型、Gazebo 世界、Velodyne 插件
 ├── TD3/                # Python 训练代码：环境包装、分层 RL、各训练脚本
 ├── repo-docs/          # 本中文文档
-└── README.md           # 英文项目说明与安装步骤
+└── README.md           # 中英双语项目说明与安装步骤
 ```
 
 变更记录见 [change-log.md](change-log.md)。

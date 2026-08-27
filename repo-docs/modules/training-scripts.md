@@ -28,7 +28,7 @@
 ### train_hierarchical.py
 
 - 解析 `--environment_dim`、`--max_timesteps`、`--eval_freq`、`--device`、`--load_high_level`、`--load_low_level`
-- 注意：`HierarchicalRL` 内部仍强制 CPU，传入 `cuda` 可能不生效
+- `HierarchicalRL` 会使用传入的 `device`；未指定时自动选择 CUDA 或 CPU
 
 ### train_sb3_td3.py
 

@@ -37,8 +37,8 @@ sequenceDiagram
     participant E as GazeboEnv
 
     E->>H: 观测 state (24D)
-    H->>L: 子目标 direction, distance
-    Note over L: sub_goal_state = state + [direction, distance]
+    H->>L: 子目标 direction_rad, distance
+    Note over L: sub_goal_state = state + [direction_rad, distance]
     L->>E: 连续动作 (v, ω)
     E->>L: next_state, env_reward, done, info
     Note over H,L: 分别计算 high/low reward，写入 buffer
@@ -46,7 +46,7 @@ sequenceDiagram
 
 关键代码位置：
 
-- 子目标解码：[hierarchical_rl.py L586-L588](../../TD3/hierarchical_rl.py)
+- 子目标解码：`HierarchicalRL._decode_high_level_action`（方向扇区 → 弧度，距离档 → 米）
 - 奖励计算：`_calculate_rewards`（方向/距离/避障/平滑/碰撞/时间惩罚）
 - 梯度更新：每 `train_freq=100` 步且 buffer > `learn_starts=1000`
 
@@ -58,15 +58,15 @@ sequenceDiagram
 | --- | --- |
 | `direction_reward` | 实际移动方向与子目标方向的偏差 |
 | `distance_reward` | 实际步长与子目标距离的偏差 |
-| `obstacle_avoidance_reward` | `info['obstacle_ahead']` 为假时 +0.2（**注：当前 `gym_wrapper` 未填充该字段，此项恒为 0**） |
+| `obstacle_avoidance_reward` | 激光最小值 ≥ 0.5 m 时 +0.2；若 `info['obstacle_ahead']` 为真则视为有障碍（环境目前仍不填充该字段，因此以激光为准） |
 | `smoothness_reward` | 相邻步方向变化惩罚 |
-| `collision_penalty` | 非成功结束 -1.0 |
-| `time_penalty` | 每步 -0.01 |
+| `collision_penalty` | 非成功结束时取 1.0，再从总分中减去 |
+| `time_penalty` | 每步 0.01，从总分中减去 |
 
 ### 低层奖励
 
 ```
-low_level_reward = env_reward + 0.5 * (direction_reward + distance_reward) + 0.5 * collision_penalty
+low_level_reward = env_reward + 0.5 * (direction_reward + distance_reward) - 0.5 * collision_penalty
 ```
 
 `env_reward` 来自 [GazeboEnv.get_reward](../../TD3/velodyne_env.py)。
@@ -82,11 +82,10 @@ low_level_reward = env_reward + 0.5 * (direction_reward + distance_reward) + 0.5
 以下不是文档挑剔，而是当前实现的真实限制：
 
 1. **训练不稳定**：论文明确写道 DQN+TD3 常原地旋转、难收敛；单层 TD3 反而更稳。
-2. **高层奖励延迟更新粗糙**：回合结束时只把 `episode_reward` 写回 buffer 最后一条经验（L700-L708），与标准 episodic credit assignment 差距较大。
-3. **强制 CPU**：`HierarchicalRL` 在 `__init__` 里写死 `self.device = torch.device("cpu")`，与 `train_hierarchical.py` 传入的 `device` 参数不一致。
-4. **`obstacle_ahead` 未实现**：避障奖励分支依赖的 info 字段未被环境填充。
-5. **Optuna 超参搜索**：`optimize_hyperparameters()` 存在，但 `objective()` 内会跑完整 `train()`，代价高且与主流程耦合松散；`train_hierarchical.py` 未暴露 `--optimize` 开关（仅在 `hierarchical_rl.py` 的 `__main__` 中有）。
-6. **双层非平稳性**：两层策略同步更新，彼此改变对方的状态分布，论文亦列为不稳定原因之一。
+2. **高层奖励仍是逐步写入**：当前把每步 `high_level_reward` 直接写入 buffer，不再把整回合回报只写到最后一条；与标准 option-critic / 延迟信用分配仍有差距。
+3. **`info['obstacle_ahead']` 仍未由环境填充**：避障项已改为用激光最小值回退，但 wrapper 仍不提供该字段。
+4. **Optuna 超参搜索**：`optimize_hyperparameters()` 存在，但 `objective()` 内会跑完整 `train()`，代价高且与主流程耦合松散；`train_hierarchical.py` 未暴露 `--optimize` 开关（仅在 `hierarchical_rl.py` 的 `__main__` 中有）。
+5. **双层非平稳性**：两层策略同步更新，彼此改变对方的状态分布，论文亦列为不稳定原因之一。
 
 ## 接下去阅读
 

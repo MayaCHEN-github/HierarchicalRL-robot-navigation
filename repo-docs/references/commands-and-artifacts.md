@@ -44,7 +44,7 @@ python hierarchical_rl.py --optimize
 | `--environment_dim` | 20 | 激光扇区数 |
 | `--max_timesteps` | 2000000 | 总训练步数 |
 | `--eval_freq` | 5000 | 评估与保存间隔 |
-| `--device` | auto | **注意：HierarchicalRL 内部仍强制 CPU** |
+| `--device` | auto | CUDA 可用时用 GPU，否则 CPU |
 | `--load_high_level` | None | 预训练 DQN 路径 |
 | `--load_low_level` | None | 预训练 TD3 路径 |
 
@@ -60,7 +60,7 @@ tensorboard --logdir ~/HierarchicalRL-robot-navigation/TD3/logs
 killall -9 rosout roslaunch rosmaster gzserver nodelet robot_state_publisher gzclient python python3
 ```
 
-分层训练还会在退出时执行 `pkill` 与清理 `/dev/shm/gazebo-*`。
+分层训练退出时会关闭本次持有的 Gym/env；若进程仍残留，请用上面的 `killall` 兜底。
 
 ## 产物路径
 

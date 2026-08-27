@@ -24,8 +24,8 @@
 
 | 索引 | 字段 | 范围 | 说明 |
 | --- | --- | --- | --- |
-| 24 | `subgoal_direction` | 扇区索引 0–19 | 高层 DQN 解码的方向 |
-| 25 | `subgoal_distance` | [0.5, 5.0] | `(action // 20) * 0.5 + 0.5` |
+| 24 | `subgoal_direction` | [-π, π] | 高层方向扇区转为弧度：`(direction / environment_dim) * 2π - π` |
+| 25 | `subgoal_distance` | [0.5, 5.0] | `(action // environment_dim) * 0.5 + 0.5` |
 
 维度：**26**
 
@@ -43,8 +43,9 @@
 | 项目 | 值 |
 | --- | --- |
 | 动作数 | 200 = 20 方向 × 10 距离档 |
-| 方向解码 | `direction = action % 20` |
-| 距离解码 | `distance = (action // 20) * 0.5 + 0.5` |
+| 方向解码 | `direction = action % environment_dim`（默认 20） |
+| 距离解码 | `distance = (action // environment_dim) * 0.5 + 0.5` |
+| 低层方向输入 | `direction_rad = (direction / environment_dim) * 2π - π` |
 
 ### 离散 DQN（单层，VelodyneGymWrapper）
 
@@ -87,16 +88,16 @@ v_env = (action[0] + 1) / 2
 | --- | --- |
 | 方向 `direction_reward` | × 0.4 |
 | 距离 `distance_reward` | × 0.4 |
-| 避障 `obstacle_avoidance_reward` | × 0.1（需 `info['obstacle_ahead']`，**当前未实现**） |
+| 避障 `obstacle_avoidance_reward` | × 0.1（激光最小值 ≥ 0.5 m 时该项为 0.2；环境仍不填充 `info['obstacle_ahead']`） |
 | 平滑 `smoothness_reward` | × 0.1 |
-| 碰撞惩罚 | -1.0 |
-| 时间惩罚 | -0.01 / 步 |
+| 碰撞惩罚 | 非成功结束记 1.0，再从总分减去 |
+| 时间惩罚 | 每步 0.01，从总分减去 |
 | 下限裁剪 | max(reward, -2.0) |
 
 ### 低层自定义奖励
 
 ```
-R_low = R_env + 0.5 * (R_dir + R_dist) + 0.5 * P_collision
+R_low = R_env + 0.5 * (R_dir + R_dist) - 0.5 * P_collision
 ```
 
 ## 评估指标

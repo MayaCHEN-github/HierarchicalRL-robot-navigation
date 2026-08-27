@@ -15,6 +15,7 @@ Chinese reader guide lives in `repo-docs/`. Start at `repo-docs/README.md`, then
 | Single-agent TD3 (`train_sb3_td3.py`, `train_velodyne_td3.py`) | Stable baseline per project README and course paper |
 | Hierarchical DQN+TD3 (`train_hierarchical.py`) | Runnable but unstable; no trustworthy quantitative win over TD3 yet |
 | Optuna in `hierarchical_rl.py` | Present; not wired through `train_hierarchical.py` |
+| Device selection | `HierarchicalRL` honors `device`; falls back to CUDA/CPU auto-detect |
 | Paper mentions PyBullet / PathBench | Not reflected in current source (Gazebo + ROS only) |
 
 ## Recommended commands
@@ -44,7 +45,7 @@ Hierarchical experiment: `python train_hierarchical.py` (expect instability).
 
 - Keep `AGENTS.md` in English; keep reader-facing guides in Chinese under `repo-docs/`.
 - Preserve exact identifiers (paths, commands, API names, metric keys) when editing docs.
-- When describing behavior, cite source files; flag unimplemented fields (e.g. `info['obstacle_ahead']`) and README/paper mismatches.
+- When describing behavior, cite source files; flag unimplemented fields (e.g. env still does not set `info['obstacle_ahead']`; hierarchical reward now falls back to lidar range) and README/paper mismatches.
 - Minimize code changes unless the task is implementation, not documentation.
 
 ## Cleanup
