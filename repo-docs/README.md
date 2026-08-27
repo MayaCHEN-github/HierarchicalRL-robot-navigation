@@ -2,7 +2,7 @@
 
 本项目在 ROS Gazebo 仿真中训练移动机器人导航策略。核心思路是把导航拆成两层：高层用离散决策选子目标，低层用连续控制执行运动。仓库同时保留单层 TD3 基线与多种训练入口，便于对比分层方案是否带来收益。
 
-项目基于 [DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation) 扩展，仿真平台为 ROS Noetic + Gazebo，算法侧使用 PyTorch 与 Stable-Baselines3（SB3）。
+项目基于课程小组仓库 [zacz08/DRL-robot-navigation](https://github.com/zacz08/DRL-robot-navigation)（再 fork 改进），该小组仓库又基于 [DRL-robot-navigation](https://github.com/reiniscimurs/DRL-robot-navigation)。仿真平台为 ROS Noetic + Gazebo，算法侧使用 PyTorch 与 Stable-Baselines3（SB3）。
 
 **证据状态：除特别标注外，本页基于当前源码已确认。**
 
