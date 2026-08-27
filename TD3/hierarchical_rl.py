@@ -469,6 +469,9 @@ class HierarchicalRL:
         多种奖励成分，包括方向奖励、距离奖励、障碍物规避奖励和路径平滑性奖励，
         并将它们组合成总奖励。高层和低层智能体有不同的奖励计算方式。
 
+        实际位移用里程计计算（比用目标距离差更准确）；前方障碍用激光最小值检测，
+        因为环境目前不会填充 info['obstacle_ahead']。
+
         参数:
             state: 当前状态
             next_state: 下一个状态
@@ -486,6 +489,7 @@ class HierarchicalRL:
             self.prev_direction = 0.0
 
         direction = action % self.environment_dim
+        target_distance = distance if distance > 0 else ((int(action) // self.environment_dim) * 0.5 + 0.5)
         if hasattr(self.env, 'gazebo_env') and hasattr(self, '_prev_odom'):
             prev_x, prev_y = self._prev_odom
             next_x = self.env.gazebo_env.odom_x
@@ -496,47 +500,44 @@ class HierarchicalRL:
         dx = next_x - prev_x
         dy = next_y - prev_y
         actual_distance = np.sqrt(dx**2 + dy**2)
-        actual_direction = np.arctan2(dy, dx) * 180 / np.pi % 360
-
-        # 目标方向
+        actual_direction_deg = np.arctan2(dy, dx) * 180 / np.pi % 360
         target_direction = (direction * 360 / self.environment_dim) % 360
 
-        # 方向和距离差异
-        direction_diff = min(abs(actual_direction - target_direction), 360 - abs(actual_direction - target_direction))
-        distance_diff = abs(actual_distance - distance)
+        direction_diff = min(abs(actual_direction_deg - target_direction),
+                            360 - abs(actual_direction_deg - target_direction))
+        distance_diff = abs(actual_distance - target_distance)
 
-        # 高层奖励组成
         direction_reward = 1.0 - (direction_diff / 180.0)
-        distance_reward = 1.0 - min(distance_diff / distance, 1.0)
-        collision_penalty = -1.0 if done and not target else 0.0
-        time_penalty = -0.01
+        distance_reward = 1.0 - min(distance_diff / target_distance, 1.0) if target_distance > 0 else 0.0
 
-        # 新增: 子目标合理性奖励
-        # 检查目标方向是否有障碍物
-        obstacle_avoidance_reward = 0.0
-        # 检查目标方向是否有障碍物
-        obstacle_avoidance_reward = 0.2 if 'obstacle_ahead' in info and not info['obstacle_ahead'] else 0.0
+        collision_penalty = 1.0 if done and not target else 0.0
+        time_penalty = 0.01
 
-        # 新增: 路径质量奖励 (平滑性)
-        if episode_timesteps > 0 and hasattr(self, 'prev_direction'):
-            direction_change = min(abs(actual_direction - self.prev_direction), 360 - abs(actual_direction - self.prev_direction))
-            smoothness_reward = 0.1 * (1.0 - min(direction_change / 90.0, 1.0))
+        laser_data = state[:self.environment_dim]
+        laser_threshold = 0.5
+        min_laser = float(np.min(laser_data)) if np.size(laser_data) else laser_threshold
+        obstacle_ahead = min_laser < laser_threshold
+        if isinstance(info, dict) and info.get('obstacle_ahead') is True:
+            obstacle_ahead = True
+        obstacle_avoidance_reward = 0.2 if not obstacle_ahead else 0.0
+
+        if episode_timesteps > 0:
+            direction_change_deg = min(abs(actual_direction_deg - self.prev_direction),
+                                      360 - abs(actual_direction_deg - self.prev_direction))
+            smoothness_reward = 0.1 * (1.0 - min(direction_change_deg / 90.0, 1.0))
         else:
             smoothness_reward = 0.0
 
-        # 更新前一方向
-        self.prev_direction = actual_direction
+        self.prev_direction = actual_direction_deg
 
-        # 综合高层奖励 = 方向奖励 * 0.4 + 距离奖励 * 0.4 + 障碍物奖励 * 0.1 + 平滑奖励 * 0.1 + 碰撞奖励 + 时间奖励
-        high_level_reward = (direction_reward * 0.4 + distance_reward * 0.4 + 
-                            obstacle_avoidance_reward * 0.1 + smoothness_reward * 0.1 + 
-                            collision_penalty + time_penalty)
+        high_level_reward = (direction_reward * 0.4 + distance_reward * 0.4 +
+                            obstacle_avoidance_reward * 0.1 + smoothness_reward * 0.1 -
+                            collision_penalty - time_penalty)
         high_level_reward = max(high_level_reward, -2.0)
 
-        # 低层奖励: 结合环境反馈和子目标完成度
-        low_level_reward = reward  # 原始环境奖励
-        low_level_reward += 0.5 * (direction_reward + distance_reward)  # 子目标完成度奖励
-        low_level_reward += collision_penalty * 0.5  # 碰撞惩罚
+        low_level_reward = reward
+        low_level_reward += 0.5 * (direction_reward + distance_reward)
+        low_level_reward -= collision_penalty * 0.5
 
         return high_level_reward, low_level_reward
 
